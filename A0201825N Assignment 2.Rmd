@@ -1,0 +1,318 @@
+---
+title: "Assignment 2"
+author: "Chang An Le Harry Jr"
+date: "2/9/2022"
+output: html_document
+---
+
+```{r}
+library(jsonlite)
+library(tidyverse)
+
+#install.packages("nycflights13")
+library(nycflights13)
+```
+
+## Question 1 - Retrenched Employees by Industry
+
+1.  Use the Data API link on the webpage to find the resource id of this data. Download the full dataset, and name it as r_emp.
+
+```{r}
+root_url = "https://data.gov.sg"
+url1 = paste(root_url,
+             "/api/action/datastore_search?",
+             "resource_id=3d180571-81d3-4834-a759-8374806b731e",
+             sep = "")
+r_emp_json = fromJSON(url1)
+str(r_emp_json)
+```
+
+```{r}
+r_emp_json$result$`_links`
+```
+
+```{r}
+r_emp = r_emp_json$result$records 
+total_records = r_emp_json$result$total 
+
+times = floor(total_records/100)
+for (i in 1:times) {
+  url = paste(root_url,
+               "/api/action/datastore_search?",
+               "offset=", i,
+               "00&",
+               "resource_id=3d180571-81d3-4834-a759-8374806b731e",
+               sep = "")
+  r_emp_json = fromJSON(url)
+  r_emp = rbind(r_emp, r_emp_json$result$records)
+}
+dim(r_emp)
+```
+
+With 380 rows and 6 columns, all we need to do is to remove the id column (which is redundant)
+
+```{r}
+r_emp = r_emp[,-(1)]
+head(r_emp)
+```
+
+```{r}
+dim(r_emp) #to check
+```
+
+2.  Data manipulation tasks:
+
+    a\. Convert retrench, retrench_term_contract, and retrench_permanent to numeric;
+
+Before conversion:
+
+```{r}
+sapply(r_emp, class)
+```
+
+After conversion:
+
+```{r}
+r_emp$retrench = as.numeric(r_emp$retrench)
+r_emp$retrench_term_contract = as.numeric(r_emp$retrench_term_contract)
+r_emp$retrench_permanent = as.numeric(r_emp$retrench_permanent)
+
+sapply(r_emp,class)
+```
+
+b)  Convert industry1 to factor;
+
+```{r}
+r_emp$industry1 = as.factor(r_emp$industry1)
+
+sapply(r_emp,class) #to check
+```
+
+c)  Compute the summary statistics of all variables in the r_emp data.
+
+```{r}
+summary(r_emp)
+```
+
+3.  Explore the dataset by yourself. Answer one question you find interesting about the data. Include the code you used, and summarize (in words) what you found.
+
+Before exploring the dataset, I have chosen to replace all the "NA" values within the dataset to 0. Based on the website, such "NA" values indicate that "Data is negligible or not significant". Furthermore, since "Data are rounded to the nearest 10", it would be justifiable to convert the "NA" values to 0 in my opinion.
+
+```{r}
+r_emp[is.na(r_emp)] = 0 #replace all "NA" with 0
+r_emp #check if above code was successful
+```
+
+Now, I'd like to find out - which particular years had the highest number of retrenchments in total (regardless of the industry)?
+
+```{r}
+r_emp2 = mutate(r_emp, year = substr(quarter, 1, 4)) #create year column
+head(r_emp2) #to check
+```
+
+```{r}
+r_emp3 = select(r_emp2, retrench, year)
+head(r_emp3) #relevant columns only, to check
+```
+
+```{r}
+r_emp4 = aggregate(r_emp3$retrench, by=list(year = r_emp3$year), FUN=sum)
+names(r_emp4)[names(r_emp4) == "x"] = "retrench_total"
+
+arrange(r_emp4, desc(retrench_total))#aggregated dataset based on year
+
+head(r_emp4) #to check output
+```
+
+```{r}
+par(las=1) #axis labels always horizontal
+par(mar = c(4,5,2,2))
+barplot(retrench_total ~ year, 
+        horiz = TRUE, data = r_emp4,
+        ylab = "Year", xlab = "Number of retrenched employees",
+        main = "Total Number of Retrenched Employees (by Year)",
+        cex.names = 0.8, cex.axis = 1, xlim = c(0,35000), border = NA,
+        col=rgb(0.2,0.4,0.6,0.8))
+```
+
+From the barplot above, we can tell that the top 5 years with the highest number of retrenched employees are:\
+1. 1998 (Asian Financial Crisis)\
+2. 2001 (Recession due to dot.com bust)\
+3. 2020 (COV1D-19 Outbreak)\
+4. 2009 (Aftermath of 2008 Global Financial Crisis)\
+5. 2002 (SARS Outbreak)
+
+It is noted that in those particular years, Singapore was experiencing signs of economic recession/downturn/slowdown due to the events mentioned above, which explains the higher numbers of retrenched employees in the country.
+
+## Question 2 - New York Flights data
+
+1.  How many flights departed NYC on December 25th 2013?
+
+There are certain rows in the dataset that consist of NA values for dep_time and arr_time. Before we can investigate the dataset, such rows should be removed as they do not represent flights that actually departed NYC, which is the main emphasis of this entire question
+
+```{r}
+full_flights = na.omit(flights) #remove all rows with NA values before investigating dataset
+full_flights
+```
+
+```{r}
+#filter out flights that departed NYC on Dec 25, 2013
+dec_25_nyc_flights = subset(full_flights, year == 2013 & month == 12 & day == 25)
+dec_25_nyc_flights
+```
+
+```{r}
+duplicated(dec_25_nyc_flights) #to check for duplicate records
+```
+
+```{r}
+dim(dec_25_nyc_flights)
+```
+
+There were 715 flights that departed NYC on December 25th, 2013.
+
+2.  From the full dataset, flights, extract all flights originated from the JFK airport. Name the new object as data1.
+
+```{r}
+data1 = subset(full_flights, origin == "JFK")
+data1
+```
+
+3.  Select the following six columns: year, month, day, dep_delay, dest, air_time. Replace data1 with the new object with these selected columns.
+
+```{r}
+myvars = c("year", "month", "day", "dep_delay", "dest", "air_time")
+data1 = data1[,myvars]
+data1
+```
+
+4.  Create a new variable air_time_hrs in data1. The new variable is constructed as: air_time_hrs = air_time / 60
+
+```{r}
+data1 = mutate(data1, air_time_hrs = air_time/60)
+data1
+```
+
+5.  What is the average departure delay time for all flights in the dataset?
+
+```{r}
+ans = mean(data1$dep_delay, na.rm = TRUE)
+ans
+```
+
+Ans: 12.02361 mins
+
+6.  What is the mean departure delay on each day in 2013? (Hint: Use groupby() summarize(), and the pipe operator %>%.)
+
+```{r}
+data12 = data1 %>%
+  group_by(year, month, day) %>%
+  summarize(mean_dep_delay = mean(dep_delay, na.rm = TRUE))
+
+data12
+```
+
+7.  How does departure delay vary with destination airport dest? Which destination airport has the highest delay time of any flight departing from NYC?
+
+```{r}
+data13 = data1 %>%
+  group_by(dest) %>%
+  summarize(mean_dep_delay_dest = mean(dep_delay))
+
+data13 #to check mean_dep_delay_time across all dest airports, departing from JFK
+```
+
+```{r}
+arrange(data13, desc(mean_dep_delay_dest)) #CVG is dest with highest mean_dep_delay_time, when considering all flights departing from JFK only
+```
+
+Based on the above, the destination airport with the highest delay time of any flight leaving JFK on average is Cincinnati/Northern Kentucky International Airport (CVG), with a reported time of 27.332983 mins.
+
+If we were to investigate a similar statistic for all flights departing from any airport in NYC, however:
+
+```{r}
+full_flights_q7 = full_flights %>%
+  group_by(dest) %>%
+  summarize(mean_dep_delay_dest = mean(dep_delay))
+
+full_flights_q7 #to check mean_dep_delay_time across all dest airports, departing from any airport in NYC
+  
+```
+
+```{r}
+arrange(full_flights_q7, desc(mean_dep_delay_dest)) #TUL is dest with highest mean_dep_delay_time, when considering all flights departing from any airport in NYC
+```
+
+Based on the above, the destination airport with the highest delay time of any flight leaving NYC on average is Tulsa International Airport (TUL), with a reported time of 34.887755 mins.
+
+8.  Explore the flights dataset by yourself. Answer one question you find interesting about the data. Include the code you used, and summarize (in words) what you found.
+
+Considering all flights departing from NYC in 2013, which month has the highest departure and arrival delay time on average?
+
+```{r}
+full_flights_agg_dd = aggregate(full_flights$dep_delay, list(full_flights$month), FUN = mean, na.rm = TRUE)
+full_flights_agg_dd1 = full_flights_agg_dd %>%
+  rename(month = Group.1, mean_dep_delay = x)
+
+arrange(full_flights_agg_dd1, desc(mean_dep_delay)) #aggregated dataset for mean departure delay time by month
+```
+
+```{r}
+full_flights_agg_ad = aggregate(full_flights$arr_delay, list(full_flights$month), FUN = mean, na.rm = TRUE)
+full_flights_agg_ad1 = full_flights_agg_ad %>%
+  rename(month = Group.1, mean_arr_delay = x)
+
+arrange(full_flights_agg_ad1, desc(mean_arr_delay)) #aggregated dataset for mean arrival delay time by month
+```
+
+Based on the 2 aggregated datasets above, it seems that July is the month with the both highest departure and arrival delay times on average when considering all flights departing from NYC in 2013 (excluding NA values from cancelled flights etc). This is an interesting finding considering that July is considered the peak period of summer in New York, so by right the absence of heavy rainfall/snowfall should have reduced the average flight delay times, especially when departing from NYC.
+
+If we were to further investigate the relationship between the mean departure delay and arrival times by month:
+
+```{r}
+combined = merge(full_flights_agg_ad1, full_flights_agg_dd1, by = "month")
+combined #merge both datasets by month
+```
+
+```{r}
+par(mar = c(4,9,4,9))
+plot(mean_arr_delay ~ mean_dep_delay, data = combined, pch = 10,
+     ylab = "Mean arrival delay time (min)", xlab = "Mean departure delay time (min)",
+      main = "R/s between Monthly Mean Departure and Arrlival Flight Delay Times")
+abline(lm(mean_arr_delay ~ mean_dep_delay, data = combined), col = "red")
+```
+
+From the above plot, it is pretty obvious that the mean departure delay time (by month) shares a positive relationship with the mean departure arrival time of flights from NYC. Logically speaking, this makes sense especially when an increase in departure delay time consequently increases the arrival delay time of a flight on average.
+
+## Question 3 - Demographic score in Peru (Optional)
+
+1.  Read the CSV into R and name the object as dem. Describe whether it is considered "tidy data" and explain why.
+
+```{r}
+dem = read_csv("Data/democracy_score.csv")
+dem
+```
+
+The above is not considered "tidy data" as year is a numerical variable that should also have its own column.
+
+2.  Create a new object dem1 that contains the democracy scores of Peru only.
+
+```{r}
+dem1 = subset(dem, country == "Peru")
+dem1
+```
+
+3.  Convert dem1 into a tidy format, using what we learned in Week 6.
+
+```{r}
+names(dem1) = gsub(pattern = "YEAR", replacement = "", x = names(dem1))
+dem1
+```
+
+```{r}
+
+dem2 = dem1 %>%
+  gather(`1952`:`1992`, key = "year", value = "score")
+
+dem2
+```

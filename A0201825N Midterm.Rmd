@@ -1,0 +1,458 @@
+---
+title: "Midterm"
+author: "Chang An Le Harry Jr"
+date: "3/2/2022"
+output: html_document
+---
+```{r}
+library(jsonlite)
+library(tidyverse)
+```
+
+
+## Question 1
+
+```{r}
+college_data = read.csv("college.csv")
+head(college_data) #reading csv file
+```
+
+### 1. Which major has the highest unemployment rate? In your output, display a table that lists the top five majors with the highest unemployment rate.
+
+```{r}
+college_q1 = college_data %>%
+  arrange(desc(unemployment_rate)) #arranging data based on unemployment rate, in desc order
+
+college_q1a = college_q1 %>%
+  select(major, unemployment_rate) #selecting only the relevant columns
+
+head(college_q1a, n = 5) #show top 5 majors based on highest unemployment rate only
+```
+
+From the output table above, the top 5 majors with the highest unemployment rates are:  
+1. Nuclear Engineering  
+2. Public Administration  
+3. Computer Networking And Telecommunications  
+4. Clinical Psychology  
+5. Public Policy
+
+### 2. Which major has the lowest percentage of women? In your output, display a table of three columns: rank, major, sharewomen. Round sharewomen to 2 decimal places.
+
+```{r}
+college_q2 = college_data %>%
+  arrange(sharewomen) #arranging data based on sharewomen, in asc order
+
+college_q2$sharewomen = round(college_q2$sharewomen, digit = 2) #round off sharewomen to 2dp
+
+college_q2a = college_q2 %>%
+  select(rank, major, sharewomen) #selecting only the relevant columns
+
+head(college_q2a, n = 5) #show top 5 majors based on lowest sharewomen only
+```
+
+From the output table above, the major Military Technologies has the lowest percentage of women.
+
+### 3. Which major has the highest percentage of women? Summarize in words of the patterns you found in part 2 and part 3.
+
+```{r}
+college_q3 = college_data %>%
+  arrange(desc(sharewomen)) #arranging data based on sharewomen, in desc order
+
+college_q3a = college_q3 %>%
+  select(major, sharewomen) #selecting only the relevant columns
+
+head(college_q3a, n = 5) #show top 5 majors based on highest sharewomen only
+```
+
+From the output table above, the major Early Childhood Education has the highest percentage of women.
+
+Based on the patterns derived from parts 2 and 3, we can deduce that the majors with highest percentages of women are mostly non-STEM majors. On the other hand, the majors with the lowest percentages of women comprise of a mixture of STEM and non-STEM majors (although still mostly dominated by the STEM majors).  
+
+I believe that the trends from this dataset tallies with the overall trend that men are still mostly dominating the STEM majors in college such as computing and engineering while women are mostly dominating the non-STEM majors, such as the social sciences, humanities, health and education.  
+
+### 4. Explore the dataset, and answer one question you find interesting about the data. Include the code you used, and summarize (in words) what you found.
+
+For this question, I'd like to find out - what is the relationship between the three variables: shareofwomen, unemployment_rate and median amongst STEM and non-STEM majors?  
+
+Before we proceed with the exploration, we would need to omit rows with NA values in any of the columns from the dataset.  
+
+```{r}
+college_q4 = na.omit(college_data) #only 1 observation removed (Food Science)
+```
+
+Next, we can plot a scatterplot matrix to investigate the relationship between the 3 variables:
+
+```{r}
+par(mar=c(1,1,1,1))
+options(scipen = 999) #disable scientific notation
+
+#correlation panel to calculate respective correlation coefficients between any 2 variables
+panel.cor = function(x, y){ 
+    usr = par("usr"); on.exit(par(usr))
+    par(usr = c(0, 1, 0, 1))
+    r = round(cor(x, y), digits=2)
+    txt = paste0("r = ", r)
+    text(0.5, 0.5, txt, cex = 2)
+}
+
+my.text.panel = function(labels) {
+  function(x, y, lbl, ...) {
+    if (lbl %in% names(labels)) lbl <- labels[[lbl]]
+    text(x, y, lbl, ...)
+  }
+}
+
+panel.lm = function (x, y, col = par("col"), bg = NA, pch = par("pch"),
+                      cex = 1, col.smooth = "black", ...) {
+  points(x, y, pch = 19, col = ifelse(college_q4$major_stem == "STEM", "red", "blue"), bg = bg, cex = cex)
+  abline(stats::lm(y ~ x),  col = col.smooth, lwd = 2)
+}
+
+pairs(college_q4[,6:8],
+      main = "Scatterplot Matrix of College Data (STEM and non-STEM)",
+      text.panel = my.text.panel(c(sharewomen = "% Female Grads",
+                                   unemployment_rate = "Unemployment Rate",
+                                   median = "Median Earnings ($)")),
+      lower.panel = panel.cor,
+      upper.panel = panel.lm)
+ legend("bottom",inset = -0.02, horiz = TRUE, legend=c("STEM", "non-STEM"), fill = c("red","blue"), cex = 0.7, box.lty = 0)
+```
+
+For the scatterplot matrix above, I have included regression lines and correlation coefficients to visually interpret the various relationships between any 2 variables. I have also renamed the variable names (i.e sharewomen -> % Female Grads, unemployment_rate -> Unemployment Rate, median -> Median Earnings) in the plot above for easier reference.     
+
+Given the very low values for the correlation coefficients of sharewomen vs unemployment_rate (r = 0.07) and unemployment_rate vs median (r = - 0.12), we can only determine that there is a moderately negative correlation between the sharewomen and median variables (r = -0.62). This suggests that with less women graduating from a particular major, the median annual earnings of a graduate from that same major generally increases. In other words, this means that graduates from a male-dominant major such as Computing and Engineering will generally have higher paying jobs based on the value of median annual earnings.
+
+But what if we were to further divide the observations based on major_stem (STEM vs non-STEM)? As seen in the above plot, the STEM observations were colour-coded as red dots while the non-STEM observations were colour-coded as blue dots. With possibly varying correlation coefficients based on major_stem, we can create additional scatterplot matrices using smaller datasets categorised based on STEM and non-STEM.
+
+```{r}
+college_q4_stem = subset(college_q4, major_stem == "STEM",
+                         select = c("sharewomen", "unemployment_rate", "median")) #plot for STEM only
+
+options(scipen = 999) #disable scientific notation
+
+#correlation panel to calculate respective correlation coefficients between any 2 variables
+panel.cor = function(x, y){ 
+    usr = par("usr"); on.exit(par(usr))
+    par(usr = c(0, 1, 0, 1))
+    r = round(cor(x, y), digits=2)
+    txt = paste0("r = ", r)
+    text(0.5, 0.5, txt, cex = 2)
+}
+
+my.text.panel = function(labels) {
+  function(x, y, lbl, ...) {
+    if (lbl %in% names(labels)) lbl <- labels[[lbl]]
+    text(x, y, lbl, ...)
+  }
+}
+
+panel.lm = function (x, y, col = par("col"), bg = NA, pch = par("pch"),
+                      cex = 1, col.smooth = "black", ...) {
+  points(x, y, pch = 19, col = "red", bg = bg, cex = cex)
+  abline(stats::lm(y ~ x),  col = col.smooth, lwd = 2)
+}
+
+pairs(college_q4_stem,
+      main = "Scatterplot Matrix of College Data (STEM only)",
+      text.panel = my.text.panel(c(sharewomen = "% Female Grads",
+                                   unemployment_rate = "Unemployment Rate",
+                                   median = "Median Earnings ($)")),
+      lower.panel = panel.cor,
+      upper.panel = panel.lm)
+```
+
+By comparing the STEM-only matrix and the combined scatterplot matrix, there is generally not much difference in the derived insights from the various relationships established. Looking at the STEM-only matrix, here is still a moderate negative correlation between sharewomen and media (r = -0.57) while there is a similarly weak/negligible correlation between unemployment_rate and median (r = -0.08). Interestingly, the correlation coefficient when comparing the sharewomen and unemployment_rate is now negative (r = -0.01) as compared to the combined matrix, which had a value of 0.07 when investigating the same 2 variables. 
+
+```{r}
+college_q4_nonstem = subset(college_q4, major_stem == "non-STEM",
+                         select = c("sharewomen", "unemployment_rate", "median")) #plot for non-STEM only
+
+options(scipen = 999) #disable scientific notation
+
+#correlation panel to calculate respective correlation coefficients between any 2 variables
+panel.cor = function(x, y){ 
+    usr = par("usr"); on.exit(par(usr))
+    par(usr = c(0, 1, 0, 1))
+    r = round(cor(x, y), digits=2)
+    txt = paste0("r = ", r)
+    text(0.5, 0.5, txt, cex = 2)
+}
+
+my.text.panel = function(labels) {
+  function(x, y, lbl, ...) {
+    if (lbl %in% names(labels)) lbl <- labels[[lbl]]
+    text(x, y, lbl, ...)
+  }
+}
+
+panel.lm = function (x, y, col = par("col"), bg = NA, pch = par("pch"),
+                      cex = 1, col.smooth = "black", ...) {
+  points(x, y, pch = 19, col = "blue", bg = bg, cex = cex)
+  abline(stats::lm(y ~ x),  col = col.smooth, lwd = 2)
+}
+
+pairs(college_q4_nonstem,
+      main = "Scatterplot Matrix of College Data (non-STEM only)",
+      text.panel = my.text.panel(c(sharewomen = "% Female Grads",
+                                   unemployment_rate = "Unemployment Rate",
+                                   median = "Median Earnings ($)")),
+      lower.panel = panel.cor,
+      upper.panel = panel.lm)
+```
+
+Moving onto the non-STEM-only matrix, the insights are also similar to those of the combined scatterplot matrix, although the magnitude of the respective coefficient correlation values have been reduced, signifying weaker relationships between the respective pairs of variables when considering only non-STEM observations.
+
+In conclusion, the only meaningful relationship that could be established from my analysis would be the moderately negative correlation between the sharewomen and median variables. And with further analysis based on the major_stem variable, it seems like there is a stronger negative relationship between sharewomen and median amongst STEM majors (r = -0.57) as compared to that same relationship amongst non-STEM majors (r = -0.48). This suggests that within the STEM majors, a major which has a higher composition of men within its cohort would be more likely to experience higher annual earnings compared to non-STEM majors.
+
+## Question 2
+
+### Use the Data API link on the web page to find the resource id of this data. Download the full dataset, and name it as rents.  
+
+```{r}
+root_url = "https://data.gov.sg"
+url1 = paste(root_url,
+             "/api/action/datastore_search?",
+             "resource_id=4384e22c-234f-4196-9df8-1941cd41c667",
+             sep = "")
+rents_json = fromJSON(url1)
+str(rents_json)
+```
+
+```{r}
+rents = rents_json$result$records 
+total_records = rents_json$result$total
+
+times = floor(total_records/100)
+for (i in 1:times) {
+  url = paste(root_url,
+               "/api/action/datastore_search?",
+               "offset=", i,
+               "00&",
+               "resource_id=4384e22c-234f-4196-9df8-1941cd41c667",
+               sep = "")
+  rents_json = fromJSON(url)
+  rents = rbind(rents, rents_json$result$records)
+}
+dim(rents) #check if dimensions are correct
+```
+
+Since the number of records (651) tallies with what is presented on the webpage, all we need to do is to remove the variable _id and check the dataset again:
+
+```{r}
+rents = rents[,-(7)] #drop _id column
+head(rents) #check dataset
+```
+
+### 1. Read the data description on the website and briefly describe the dataset and the variables it includes.
+
+Based on the data description on the website, this dataset contains summary statistics of major non-landed private residential projects with at least 10 rental contracts signed in a quarter. A major project is defined as one with at least 100 residential units. The coverage ov the dataset ranges from Oct 1, 2021 to Dec 31, 2021, also referring to the 4th quarter of 2021.
+
+The dataset contains 7 different variables, which include:  
+a. qtr - quarter in which data was collected (listed as YYYY-QX)  
+b. project_name - name of project  
+c. postal_district - postal district of which each project is located at  
+d. 25th_percentile - value of 25th percentile of rental contracts signed for each project (S$ per square meter, per month)  
+e. median - value of median of rental contracts signed for each project (S$ per square meter, per month)  
+f. 75th_percentile - value of 75th percentile of rental contracts signed for each project (S$ per square meter, per month)  
+7. rental_contracts - number of rental contracts signed for each project  
+
+### 2. How many observations and variables are there? Display the first ten rows of your dataset.
+
+```{r}
+dim(rents) #check dimensions again
+```
+
+As shown above, there are 651 observations and 7 variables, which tallies with the dataset presented on the given webpage.
+
+```{r}
+head(rents, n = 10) #check first 10 rows of dataset
+```
+
+### 3. Display the top ten non-landed private residential project that had the most rental contracts signed in 2021-Q4. Summarize in words of the patterns you found.
+
+```{r}
+rents_q3 = rents %>%
+  arrange(desc(rental_contracts))
+
+head(rents_q3, n = 10)
+```
+
+The output table above presents the top 10 non-landed private residential projects with the most rental contracts signed in 2021-Q4, with REFLECTIONS AT KEPPEL BAY having the highest number of rental contracts signed (98). 
+
+Among the top 10 projects listed above, 7 out of the 10 projects are located in the East, based on their postal district identification (postal districts 14, 16, 18, 19). This may be an indication that the East may be the most popular region by demand amongst potential non-landed private housing residents in Singapore.
+
+Source for postal district identification: https://www.ura.gov.sg/realEstateIIWeb/resources/misc/list_of_postal_districts.htm 
+
+### 4. Explore the dataset, and answer one question you find interesting about the data. Include the code you used, and summarize (in words) what you found.
+
+For this particular dataset, I would like to find out - how many rental contacts were signed in total based on the 6 different regions (i.e North, South, East, West, Central, City) in Singapore? And based on this question, which are currently the most highly demanded regions for non-landed private residential housing in Singapore?
+
+But first, we need to categorise the 28 postal districts into the different regions. However, there are many online interpretations of Singapore's postal district map, with certain districts still being disputed as to which region they really belong to. For instance, it is debatable that postal district 14 (Eunos, Geylang) can be considered as either part of the Central region or the East region, depending on different perspectives.
+
+Thus, for the purpose of this analysis, I will be making reference to the link below when categorising the 28 districts into the 6 different regions: https://sharonanngoh.com/useful-info/singapore-district-guide/  
+
+We first need to create a new column to indicate the region in which each postal district belongs to:
+
+```{r}
+rents_q4 = rents %>% #creating region column
+  mutate(postal_district = as.numeric(postal_district)) %>%
+  mutate(region = case_when(
+    postal_district >= 13 & postal_district <= 18 ~ "East",
+    postal_district >= 21 & postal_district <= 24 | postal_district == 5 ~ "West",
+    postal_district >= 25 & postal_district <= 28 | postal_district == 19 | postal_district == 20 ~ "North",
+    postal_district == 3 | postal_district == 4 ~ "South",
+    postal_district >= 8 & postal_district <= 12 ~ "Central",
+    postal_district == 1 | postal_district == 2 | postal_district == 6 | postal_district == 7 ~ "City"))
+
+head(rents_q4, n = 10) #to check if new column has successfully been created
+```
+
+Next, we can create an aggregated dataset to sum up the total number of rental contracts signed based on the different regions:
+
+```{r}
+rents_q4a = rents_q4 %>%
+  mutate(rental_contracts = as.numeric(rental_contracts)) %>%
+  group_by(region) %>%
+  summarise(total_rental_contracts = sum(rental_contracts)) %>%
+  arrange(region)
+
+rents_q4a #check new dataset
+```
+
+```{r}
+a = barplot(total_rental_contracts ~ region, 
+        data = rents_q4a,
+        xlab = "Region in Singapore", ylab = "Number of rental contracts signed",
+        main = "Total Number of Rental Contracts Signed by Region",
+        ylim = c(0, 6000), cex.axis = 1,
+        col = c("pink", "red", "orange", "blue", "yellow", "green"))
+
+text(x = a, y = rents_q4a$total_rental_contracts, label = rents_q4a$total_rental_contracts, pos = 3, cex = 1)
+```
+
+Based on the barplot above, we can deduce that the top 3 most popular regions amongst residents in Singapore to rent a residential unit in a non-landed residential project are Central, East and West.
+
+The Central region consists of locations such as Orchard, River Valley, Novena and Toa Payoh, all which are surrounded by various shopping facilities and top schools. Generally, this region would be convenient to live in particularly for foreign expatriates, who may intend to work in Singapore for a long period of time, while being able to send their children to study in Singapore's top schools as well. Also, another point to note is that the Central region is geographically one of the smaller regions among the six main regions, which further boasts its status as being the most popular region to rent a non-landed residential housing unit in based on demand.
+
+The East region consists of locations such as Bedok, Pasir Ris, Tampines and Paya Lebar, which consists of a wide variety of shopping facilities and office buildings that caters to both foreign expatriates and local citizens. These individuals would similarly find it convenient to travel back and forth between their rented homes and their workplaces as well.
+
+The West region comprises locations such as Jurong and Tuas, which mainly host industrial facilities and office buildings. Renting a non-landed residential unit in the West would mostly be beneficial for those working in industries such as pharmaceuticals and energy, where their offices and power plants (if applicable) would have to be located in more remote areas in the West.
+
+To further enhance this analysis, we can also compare the average number of rental contracts signed for each property based on the 6 different regions:
+
+```{r}
+rents_q4b = rents_q4 %>%
+  mutate(rental_contracts = as.numeric(rental_contracts)) %>%
+  group_by(region) %>%
+  summarise(mean_rental_contracts = round(mean(rental_contracts),2)) %>%
+  arrange(region)
+
+rents_q4b #check new dataset
+```
+
+```{r}
+b = barplot(mean_rental_contracts ~ region, 
+        data = rents_q4b,
+        xlab = "Region in Singapore", ylab = "Number of rental contracts signed",
+        main = "Average Number of Rental Contracts Signed per Project by Region",
+        ylim = c(0,50), cex.axis = 1,
+        col = c("pink", "red", "orange", "blue", "yellow", "green"))
+text(x = b, y = rents_q4b$mean_rental_contracts, label = rents_q4b$mean_rental_contracts, pos = 3, cex=1)
+```
+
+Based on the barplot above, we can deduce that City region has the highest number of rental contracts signed per residential project on average. This may be an indication that each non-landed private residential project in the City region generally contains more residential units compared to the residential projects in other regions. With the City region having the 2nd lowest number of total contracts signed, this may suggest that renting a non-landed private residential unit in the City region is very expensive indeed, and will only cater to the richest individuals living in Singapore. This may be  due to the relatively higher value of each unit, as well as the convenient access to various landmarks and facilities that each project's location offers.
+
+A similar analysis can be offered for residential projects in the South region as well, since it has the second highest number of rental contracts signed per project on average, as well as having the lowest total number of rental contracts signed across all of its properties compared to other regions. This is no surprise as the South region is located next to City region according to the district map, with the former boasting popular locations such as Tiong Bahru, Alexandra, Keppel and Sentosa - all of which contain properties of higher relative value.
+
+Conversely, in the East and West regions, the average numbers of rental contracts signed per project are lower. Given that the East and West regions were amongst the top 3 in terms of the total number of rental contracts signed, this may suggest that each non-landed private residential unit is relatively cheaper to rent due to the smaller size of each residential project (less units per project on average) in the 2 regions. The locations of each project may not be as ideal as well (e.g project not located as close to MRT station or shopping facilities for convenience).
+
+## Question 3
+
+```{r}
+gifts_df = read_rds("gifts_retail.rds") #read dataset
+```
+
+```{r}
+head(gifts_df, n = 10) #check dataset
+```
+
+### 1. Extract all rows from the one customer who spent the most in the dataset. What is the customer id for this person? How much did he/she spend in total?  
+
+```{r}
+q1_df = gifts_df %>%
+  mutate(subtotal_spent = Quantity * UnitPrice) %>% #need to find out total spent on each particular item by each customer first
+  group_by(CustomerID) %>%
+  summarise(total_spent = sum(subtotal_spent)) %>% #aggregate (sum) total spent by each customer
+  arrange(desc(total_spent)) #arranging in desc order to identify top spenders
+
+head(q1_df)
+
+```
+
+Based on the above, the customer with the CustomerID 14646 spent the most according to the dataset, with a total expenditure of £278742.00.
+
+To have an in-depth look at the items purchased by this customer, we can filter the dataset based on his CustomerID:
+
+```{r}
+filter(gifts_df, CustomerID == 14646)
+```
+
+### 2. Add a new column to the gifts_df object, year_month, which corresponds to the year and month from the Invoice Date. Count the number of unique invoices in each year-month combination and then arrange them in descending order in a data frame (or tibble) called q2_df. Display the first six rows of q2_df.  
+
+```{r}
+q2_df_pre = gifts_df %>%
+  mutate(gifts_df, year_month = format(InvoiceDate, "%Y-%m"))
+```
+
+```{r}
+q2_df = q2_df_pre %>%
+  count(InvoiceNo, year_month, sort = TRUE) %>%
+  rename(count = n)
+
+head(q2_df, n = 6)
+```
+
+
+### 3. Some items have different unit prices, even within the same invoice. Create a new object q3_df containing only those stock codes with non-unique prices over the period. It should indicate the maximum and minimum prices for that item. Display the first six rows of q3_df.  
+
+```{r}
+q3_df_pre = distinct(gifts_df, StockCode, UnitPrice)
+
+q3_df_pre_a = q3_df_pre %>%
+  group_by(StockCode) %>%
+  mutate(count = n()) %>%
+  filter(count > 1) #filtering out only stock codes with non-unique prices
+  
+```
+
+```{r}
+q3_df = q3_df_pre_a %>%
+  group_by(StockCode) %>%
+  summarise( #creating max_price and min_price columns
+    max_price = max(UnitPrice),
+    min_price = min(UnitPrice)
+  ) %>%
+  arrange(StockCode)
+
+head(q3_df, n = 6) #display first 6 rows of final dataset
+```
+
+
+### 4. The columns InvoiceNo and StockCode are of class character. Why is this so? Can they be safely converted to numeric columns?  
+
+InvoiceNo and StockCode are used as unique identifiers of each transaction, which may be a main reason as to ensure they are character columns.
+
+For InvoiceNo, the column class is character possibly to prevent unnecessary computation of summary statistics. For instance, there is no point calculating the sum, mean or median of all the unique invoice numbers, as no useful insights can be derived from them. InvoiceNo is better used as a categorical variable instead to perform analyses based on the unique invoice numbers.
+
+For StockCode, there are certain values that contain both integers and alphabets (e.g "85123A", "85099B"), which may be why the class of this column should remain as character instead of making it purely numeric.
+
+To test if the 2 columns can be safely converted to numeric, we can try the following:
+
+```{r}
+q4_df = gifts_df %>%
+  mutate(InvoiceNo = as.numeric(InvoiceNo),
+         StockCode = as.numeric(StockCode))
+```
+
+As seen in the above error code, the stock codes containing both integers and alphabets will be transformed into NA values upon conversion of the StockCode column from character to numeric. On the other hand, there is no issue converting the InvoiceNo column from character to numeric, since all its values contain numbers only.
+

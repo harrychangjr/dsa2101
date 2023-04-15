@@ -1,0 +1,111 @@
+---
+title: "Assignment 3"
+author: "Chang An Le Harry Jr"
+date: "3/16/2022"
+output: html_document
+---
+
+# Question 1 - Data Manipulation
+
+```{r}
+# install.packages("lubridate")
+library(lubridate)
+library(tidyverse)
+load("Data/assignment3_data.RDS")
+```
+
+## 1. We can say that the billboard data frame is untidy. Describe the tidy data definitions (on Page 60 of the lecture note Week5_slides.pdf) and explain why billboard violates them.
+
+From the slides, it is known that  
+1. each variable forms a column,  
+2. each observation forms a row,  
+3. each type of observational unit forms a table.
+
+However, the billboard dataframe violates the first condition in particular as the week variable does not form a single column on its own. Instead, creating columns for the rankings for each week (e.g wk1, wk2, wk3 etc) makes the data untidy overall.
+
+## 2. Tidy up the structure of the billboard dataset and name it as df1. Store the weekly ranking in a variable named rank. Remove the rows from df1 where the rank column is NA. After this step, the first few lines of df1 should read:
+
+```{r}
+df1 = billboard %>%
+  gather("week","rank",4:79)
+
+df1 = na.omit(df1) #observation count decreases from 24092 to 5307
+
+head(df1)
+```
+
+## 3. Convert the week variable to a number.
+
+```{r}
+df1$week = gsub("wk","",df1$week)
+df1$week = as.numeric(df1$week)
+
+sapply(df1, class) #check if conversion is done correctly
+```
+
+## 4. For this question, we will use the lubridate package. Read the package description by typing ?lubridate in your RStudio Console. The package provides tools that enables us to manipulate dates. Specifically, we would like to extract information from the date.entered variable of df1 and create the following variables:  
+
+• day: the day component of the date.entered variable  
+• month: month of the date  
+• year: year of the date  
+• day_of_week: the day of the week as an ordered factor variable  
+• After creating the new variables, remove the column date.entered and then overwrite the  
+original df1 data frame.  
+
+```{r}
+?lubridate
+```
+
+```{r}
+df1a = df1 %>% #creating the different columns, storing into temp dataframe (df1a)
+  mutate(day = mday(date.entered)) %>%
+  mutate(month = month(date.entered)) %>%
+  mutate(year = year(date.entered)) %>%
+  mutate(day_of_week = wday(date.entered, label = TRUE, abbr = TRUE))
+
+df1 = subset(df1a, select = -c(date.entered)) #remove date.entered column, overwrite df1
+head(df1) #to check
+```
+
+## 5. Below is a diagram for the variables in the df1 and songs tables. Identify the primary keys in the two tables, and check if they are able to uniquely identify the observations in the datasets. Illustrate (in words) the connections between the two tables.
+
+From the two tables, the primary keys would be the track title and the artist name. To verify this, we can do the following:
+
+```{r}
+songs %>%
+  count(artistname, track) %>% filter(n >1) #primary keys can uniquely identify observations
+```
+
+```{r}
+df1 %>%
+  count(artist, track) %>% filter(n >1) #primary keys unable to uniquely identify observations
+```
+
+As seen above, the identified primary keys can uniquely identify the observations in the songs dataset, but not in the df1 dataset. This is because in the df1 dataset, the number of observations for each unique combination of artist name and track title represents the number of weeks that each song has remained on the Billboard Top 100 List.
+
+Also, to illustrate the connection between the two datasets, the songs dataset represents a subset of the full list of songs that appear in the df1 dataset, in which the latter represents the 317 songs that entered the Billboard Top 100 List.
+
+## 6. Use an inner join to join df1 to the songs data frame and name the new object as df2. Describe (in words) what df2 contains. Display the summary statistics of the new object using the summary() function.
+
+```{r}
+df2 = df1 %>%
+  inner_join(songs, by = c("artist" = "artistname", "track" = "track"))
+```
+
+```{r}
+summary(df2)
+```
+
+df2 contains the list of songs that appear in both the songs dataset and the Billboard Top 100 List. It includes the weekly rankings of the 117 songs from the songs dataset that entered the weekly Billboard Top 100 List.  
+
+Besides the obvious features such as track duration, artist name, track title, the rank column represent each song's weekly ranking in the Billboard Top 100 List each week while the popularity column was extracted based on the internal ranking amongst the 117 songs in the songs dataset (based on popularity).  
+
+# Question 2 - Visualization Write-Up
+
+## Major League Soccer: Team Performance vs Salary
+
+As a sports fan, I've always wondered how much sport athletes would earn for a living, and whether their individual and/or team performance affects their pay. Thus, this visualisation on Major League Soccer piqued my interest. It aims to compare the 2018 season rankings of the 23 soccer clubs, as well as their salary rankings for the year. Lines are drawn between the two columns of season ranking and total base salary ranking, in an attempt to investigate the relationship between the two variables amongst the 23 clubs.
+
+In my opinion, I generally dislike the way that the visualization was presented. Firstly, the intersecting lines may make it confusing overall to take note the exact rankings of both variables for each club, especially when there are so many clubs in the league. I would say that this form of visualization is still appropriate for 10 clubs or less, but looking at this for 23 clubs complicates interpretations in my opinion. Also, there seems to be no explanation on why the lines have varying thicknesses. Nonetheless, one merit that can be pointed out is the color-coding of the lines drawn, with red representing a club having a season ranking less than or equal to its total salary ranking, while blue represents the opposite.  
+
+The visualization being discussed is in the form of a bump chart, which is mainly used to represent changes of one type of rank over time. However, since this is not a time series plot, it would be more appropriate to represent the data using a scatterplot instead, where each point can effectively distinguish the identity of each club. This, in my opinion, would be a more effective way of comparing the 2 different variables when visually representing this relationship.

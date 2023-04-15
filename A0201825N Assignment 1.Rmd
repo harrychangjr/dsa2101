@@ -1,0 +1,98 @@
+---
+title: "Assignment 1"
+author: "Chang An Le Harry Jr"
+date: "1/19/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      fig.asp = 0.618, fig.align='center', out.width = "80%")
+```
+
+## Question 1: Basics in R programming
+
+1. Create a vector of all integers from 2 to 100, and save it as x1.
+
+```{r}
+x1 <- c(2:100)
+x1
+```
+
+2. Create a vector of all even integers from 2 to 100, and save it as x2.
+
+```{r}
+x2 <- seq(2,100,2)
+x2
+```
+
+3. Compute the sum of x1 and x2.
+
+```{r}
+x1 + x2
+```
+
+4. What do the commands sum(x1) and length(x1) do? Use these commands to compute the average of all values in x1.
+
+```{r}
+sum(x1)
+length(x1)
+```
+- sum(x1) computes the sum of all integers in the vector x1 (i.e 2 + 3 + 4 + ... + 99 + 100 = 5049)  
+- length(x1) prints the total number of integers in the vector x1 (99)
+
+```{r}
+ans <- sum(x1) / length(x1)
+ans
+```
+
+This mean value can also be verified using the code below:
+
+```{r}
+mean(x1)
+```
+
+5. The formula for the sum of the first n positive integers is n(n+1)/2. Compute the sum of all integers from 1 to 2101 using this formula.
+
+```{r}
+2101*(2101+1)/2
+```
+
+## Question 2: Revisit the cars data
+
+1. Read in the dataset cars and name it as data1. Read the data help files and briefly describe the definition of each variable.
+
+```{r}
+data1 <- cars
+?cars
+```
+
+The dataset has 2 variables: 'speed' and 'dist'. 
+
+- 'speed' refers to the speed of the car in each observation, measured in mph  
+- 'dist' refers to the stopping distance that the car requires while travelling at a particular speed, measured in ft  
+
+2. How many observations and how many variables are there in this dataset? Write code to answer this question.
+
+```{r}
+dim(data1)
+```
+
+3. Compute the summary statistics of all variables in the dataset using the summary() function. Based on the statistics, determine whether the mean or the median is a better measure of the center for each variable. 
+
+```{r}
+summary(data1)
+```
+
+- Mean is a better measure for the centre of the 'speed' variable as the data points are generally more evenly distributed amongst each other.  
+- Median is a better measure for the centre of the 'dist' variable due to the outlier value of 120 which may greatly affect the value of the mean. Thus in this case median would be the more appropriate measure.  
+
+4. Create a scatterplot to visualize the relationship between the variables in the dataset. Add appropriate titles to your chart and axes. Briefly interpret the scatterplot (e.g trends, relationships, etc)
+
+```{r}
+plot(data1$speed, data1$dist,
+     xlab = "Speed (mph)", ylab = "Stopping distance (ft)",
+     main = "Relationship between Speed and Braking")
+```
+
+From the scatterplot, it seems like there's generally a positive relationship between speed and stopping distance. When the speed of the car increases, the stopping distance required by the car to stop increases.

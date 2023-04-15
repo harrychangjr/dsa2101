@@ -1,0 +1,284 @@
+---
+title: "DSA2101 Group Project"
+author: "Group B"
+output:
+  html_document: default
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = "center")
+```
+
+```{r, include = FALSE}
+library(tidyverse)
+library(ggplot2)
+```
+
+# Analysis on Spotify Data
+
+Name | Matriculation number
+:----: | :----:
+Hew Li Yang | A0200905U
+Zhu Le Yao | A0223207U
+Harry Chang | A0201825N
+Brandon Chia | A0216337H
+Kaaviya Selvam | A0219611L
+
+## Introduction
+
+Spotify is one of the largest music streaming services in the world with over 406 million monthly active users (Spotify, 2022). In this project, we are looking to answer the following questions regarding the music hosted on the platform:  
+
+1. What differentiates songs of different genres?
+2. How do the 4 seasons affect the number of songs produced in each period?
+
+To do so, we will be using the dataset on Spotify song metadata in 2020 obtained from [tidytuesday/data/2020/2020-01-21/](https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-01-21).
+
+## Data Description
+
+```{r}
+spotify_songs <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-01-21/spotify_songs.csv')
+```
+
+```{r}
+summary(spotify_songs)
+```
+
+A brief description of the variables **relevant** to our analysis are given in the table below:
+
+|variable                 |class     |description |
+|:---|:---|:-----------|
+|track_popularity         |double    | Song popularity from **0-100** where higher is better |
+|playlist_genre           |character | Genre of playlist |
+|danceability             |double    | Describes how suitable a track is for dancing from **0.0-1.0** where higher means more danceable. |
+|energy                   |double    | Represents a perceptual measure of intensity and activity from **0.0-1.0**. Energetic tracks are typically fast, loud and noisy.  |
+|key                      |double    | The estimated overall key of the track. Integers map to pitches using standard Pitch Class notation . E.g. 0 = C, 1 = C♯/D♭, 2 = D, and so on. If no key was detected, the value is -1. |
+|loudness                 |double    | The average loudness across the entire track in decibels (dB). Values range from **-60 to 0** db. The smaller the absolute value, the louder the relative loudness.|
+|mode                     |double    | Indicates the modality (major or minor) of a track. Major is represented by **1** and minor is **0**.|
+|speechiness              |double    | Detects the presence of spoken words in a track from **0.0-1.0**. More speechy tracks are closer to **1** and vice versa.  |
+|acousticness             |double    | A confidence measure from **0.0-1.0** of whether the track is acoustic. **1.0** represents high confidence the track is acoustic.|
+|instrumentalness         |double    | A confidence measure from **0.0-1.0** of whether the track contains no vocals, i.e contains instruments only |
+|liveness                 |double    | A confidence measure from **0.0-1.0** of whether the track was performed live. |
+|valence                  |double    | A measure from 0.0 to 1.0 describing the musical **positiveness** conveyed by a track. Tracks with high valence sound more positive (e.g. happy, cheerful, euphoric), while tracks with low valence sound more negative (e.g. sad, depressed, angry). |
+|tempo                    |double    | The overall estimated tempo of a track in beats per minute (BPM). |
+|duration_ms              |double    | Duration of song in milliseconds |
+
+### Cleaning
+
+```{r}
+# check for missing values
+spotify_songs %>%
+  summarise_all(funs(sum(is.na(.))))
+```
+We can remove these observations as they are unlikely to affect our finals results.
+
+```{r}
+spotify_songs = spotify_songs %>%
+  na.omit()
+```
+
+Next, we check for duplicated instances.
+```{r}
+spotify_songs %>%
+  summarise_all(funs(sum(duplicated(.))))
+```
+It appears that each track does not appear uniquely in the data set. To investigate, we can find the track ID with the most repeats as such:
+
+```{r}
+# find the track ID with most repeats
+spotify_songs %>% 
+  group_by(track_id) %>%
+  count() %>%
+  filter(n > 1) %>%
+  arrange(desc(n)) %>% head(1)
+
+# display all observations with this track ID
+spotify_songs %>% 
+  filter(track_id == "7BKLCZ1jbUBVqRi2FVlTVw")
+```
+
+From the results, we note that the same song can appear multiple times under different playlist & genres. Depending on the use case, additional steps such as 
+
+* Drop irrelevant columns
+* Remove outlier observations
+* Remove duplicated tracks
+
+may be needed. Finally, we should also note that the data is not tidy. For instance, columns like `loudness`, `mode`, `speechiness` are all `features` of a track. We will handle this issue during plotting.
+
+With some preliminary cleaning, the dimension of the dataset is now
+```{r}
+dim(spotify_songs)
+```
+
+
+## Question 1: What differentiates songs of different genres?
+
+### Introduction
+
+For this question, we are interested in investigating the differences in songs of different genres. This could be useful in designing an algorithm to automatically classify songs to their genres which can be used in recommendation systems. This question seemed natural to ask since information like `genre` and numerical features of each song like `danceability`, `energy`, ... `duration_ms` is given in the dataset. 
+
+### Methodology
+
+***Plot 1:***  
+The first plot is a **ridgeline faceted density plot** where each facet represents one feature variable in which its distribution is seperated by genre. This visualization was inspired by [Kaylin Pavlik (2019)](https://www.kaylinpavlik.com/classifying-songs-genres/) in her article on classifying song genres. In our version of the plot, we seperated genre by ridges instead of simply using colored lines to improve visibility of the differences in distributions. A `viridis` fill is also used to enhance readability for color blind readers.
+
+***Plot 2:*** 
+In order to further investigate the feature `speechiness`, we use a **boxplot** to visualize its distribution by genre. A box plot is appropriate here as it will enable us to clearly compare the median `speechiness` levels of each genre. In addition, the y-axis is log-scaled in order to minimise the distortion due to outliers.
+
+### Visualizations & Discussions
+
+```{r}
+# additional packages needed
+library(ggthemes)
+library(ggridges)
+library(viridis)
+```
+
+```{r, fig.width = 7, fig.height= 7}
+plot = spotify_songs %>%
+  select(c("playlist_genre", "danceability":"duration_ms")) %>%
+  gather("danceability":"duration_ms", key = "feature", value = "val") %>%
+  ggplot(aes(x = val, y = playlist_genre)) +
+  geom_density_ridges(aes(fill = playlist_genre), alpha = 0.6) +
+  facet_wrap(~feature, ncol = 3, scales = "free") +
+  labs(title = 'Density of Song Features - by Genre',
+       x = '', y = 'density') +
+  theme(axis.text.y = element_blank()) +
+  scale_fill_colorblind(name = "Genre") +
+  theme_clean() + 
+  theme(legend.position = "bottom")
+  
+plot
+```
+
+The plot displays the distribution of values for each numerical feature associated with the genre of the songs.  
+
+At first glance, `liveliness`, `key`, `instrumentalness` and `mode` seem to have a similar distribution for all genres and therefore may not help much as predictor variables for genre classification.
+
+It is interesting in particular to observe the distribution of the remaining features as they vary from genre to genre. The most interesting observations for each feature is populated in the table below.
+
+ | Feature | Observations | 
+ |:------:|:------|
+ | Acousticness | Most rock and EDM tracks are less likely to be acoustic | 
+ | Danceability | Rock music is significantly less danceable than other genres, while most Latin songs are very danceable |
+ | Energy | EDM tracks are mostly high-energy while R&B tracks are most likely to be low-energy |
+ | Acousticness | Most rock and EDM tracks are less likely to be acoustic |
+ | Loudness | High across all genres, but EDM is the loudest by a slight margin | 
+ | Speechiness | Rap music is by far the most speechy genre |
+ | Tempo | The tempo of EDM music is the most concentrated at 120bpm, while other genres are similarly distributed |
+
+The table seems to indicate that EDM is the genre that can be most easily classified based on the above features as it has the most different distributions compared to other genres.
+
+Next, it would be interesting to explore a certain feature more closely to figure out more specifically how each genre differs. For this we will be looking at `speechiness`.
+
+```{r}
+spotify_songs %>%
+  ggplot(aes(x = playlist_genre, y = speechiness, fill = playlist_genre)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Speechiness by Genre", x = "Genre", y = "Speechiness") +
+  scale_fill_colorblind() +
+  scale_y_log10() +
+  theme_clean() 
+```
+
+From the graph, it can be clearly seen that most `rap` tracks have a significantly higher `speechiness` level. In fact, the median `speechiness` for `rap` is higher compared to the 75th quantile for `speechiness` of any other genre. Therefore we can conclude that `speechiness` is definitely an informative predictor variable when it comes to predicting a song to be of the rap genre. Similar analysis can be done for other feature variables in order to select the most informative features as input to a classifier algorithm like Decision Trees, Naive Bayes and SVM.
+
+
+## Question 2: How do the 4 seasons affect the number of songs produced in each period?
+
+### Introduction  
+
+This question explores the relationship between the number of songs produced and the season the songs are released in per genre. Thus, the parts of the dataset necessary are the playlist genre and track album release date.  From the track album release date, we extracted the month and year, to group into seasons e.g. all track albums released from March to May in all years are grouped under the season “Spring”; June to August under “Summer”; September to November under “Autumn”; and December to February under “Winter”.  We are interested in this question due to the conjecture that certain genres are associated with certain moods and festivals, thus will be more profitable/popular during certain seasons. For instance, winter could be a more melancholic season due to Christmas, thus more slow and moody songs. Therefore, there is an increase/decrease in release of each genre, depending of the different season(s).  
+
+### Methodology
+
+***Plot 1:*** 
+The first plot is a **line chart** which shows how the number of songs released varies over the four seasons, with each line representing a different genre of music. Each point on the graph represents a summation of the total number of songs released in each season across all the years, whihc was further grouped by its genre based on the different lines.
+
+In addition, we have also used colour blind colours to ensure that the graph is easily interpretable by all readers.
+
+***Plot 2:*** 
+The second plot is a **faceted donut chart** which features the distribution of the different genres of songs over the 4 seasons. This second plot is meant to supplement the previous plot where it conveys more accurately the breakdown of songs released in each season.
+
+### Visualizations & Discussions
+
+```{r}
+spotify2=spotify_songs %>%
+  select(-c(("track_id"),("track_album_id"),("playlist_name"),("playlist_id"),("duration_ms")))
+
+#spotify2 %>%count(playlist_subgenre)
+#head(spotify2)
+
+spotify2$track_album_release_date=as.Date(spotify2$track_album_release_date)
+
+library(lubridate)
+
+spotify2=spotify2 %>%
+  mutate(month=month(spotify2$track_album_release_date),year=year(spotify2$track_album_release_date)) %>%
+  select(-c("track_album_release_date"))
+
+spotify2 =spotify2%>%
+  mutate(quarter = case_when(
+    month == 3 | month == 4 | month == 5 ~ 'Spring'
+    , month == 6 | month == 7 | month == 8 ~ 'Summer'
+    , month == 9 | month == 10 | month == 11 ~ 'Autumn'
+    , month == 12 | month == 1 | month == 2 ~ 'Winter'))
+
+spotify2= spotify2 %>%
+  group_by(quarter) %>%
+  count(playlist_genre)
+
+spotify2 = na.omit(spotify2)
+
+spotify2$quarter = factor(spotify2$quarter, levels = c("Spring", "Summer", "Autumn", "Winter"))
+
+ggplot(spotify2,aes(x=quarter,y=n, group = playlist_genre))+
+  geom_point(aes(colour=playlist_genre))+
+  geom_line(aes(colour=playlist_genre))+
+  xlab("Season")+ylab("Number of songs")+
+  ggtitle("Number of songs produced in each season per genre") +
+  theme_clean()+
+  scale_color_colorblind()
+```
+
+From the plot, we observe that all genres have an overall increase in songs produced across the seasons, where it is at its lowest in the Spring, and slowly increases as the following seasons come. We can see that EDM, pop and Latin songs share a similar trend where it slightly dips in songs produced in Winter while the other genres, R&B, rap and rock continue to increase in Winter.  
+
+We can also observe that the rock genre is consistently lower than other genres regardless of the season. We hypothesize that it may due to a multitude of reasons:
+
+First, there have been many controversies surrounding the rock industry as a whole which may lead to a deteriorating fan base as the people who they thought of as idols no longer fit, with them not realizing the impact their actions might bring about for the industry as a whole (Joan CA, 2013).
+
+Secondly, there seems to be a lack of diverse ethnicities among rock artists. Rock music mainly appeals to the Whites, while the Black, Latino and Asian youth may be less enticed to listen to a genre with artists that hardly resemble them.
+
+Lastly, there is an overt sexualization and masculinity associated with the rock genre which may not appeal to women, especially the younger generations. These women may find more enjoyment from the other genres which includes R&B and Rap where there is a larger variety of artists that are also female.  All these factors, the poor choices made by rock idols; the inability to capture a younger demographic; and the natural seclusion of women from the genre may be the reason why rock has consistently lower number of songs produced as there are a smaller number of artists from the genre.
+
+
+
+```{r}
+spotify3 = spotify2 %>%
+  group_by(playlist_genre) %>%
+  mutate(percent = n/sum(n)*100)
+
+ggplot(data = spotify3, aes(x = 2, y = percent, fill = quarter)) +
+  geom_bar(stat = "identity") +
+  coord_polar(theta = "y") +
+  geom_text(aes(label=paste0(round(percent,2), "%")),size=2.75,position = position_stack(vjust = 0.5))+
+  facet_wrap(facets=. ~ playlist_genre)+
+  theme_void()+
+  scale_fill_manual(values = c("#76b7b2","#59a14f","#edc948","#b07aa1"))+
+  xlim(0.7,2.5)+
+  ggtitle("Distribution of different genres of songs across all 4 seasons")+
+  theme(plot.title = element_text(vjust = 3, face = "bold"),
+        strip.text.x = element_text(size = 10))
+```
+
+The faceted donut chart is an adjunct to the previous plot, where it further simplifies the line graph into a breakdown of the songs in the season by its genre.  
+
+While each donut chart in the faceted plot is separated by its percentages, we can see that there are only subtle differences in the breakdown of songs throughout the season, with each genre capturing roughly the same percentage of songs despite the season. We believe that the percentages here can reflect the popularity of the songs as it does not fluctuate much which gives an idea of what genres have been popular.
+
+In the chart above, the season with the most songs for the EDM, Latin and pop genres is Autumn while the season with the most songs for the R&B, Rap and Rock songs is Winter. this is particularly interesting considering that the faceted donuts are arranged by genre in alphabetical order, and it is coincidental that the above 3 donut charts have a similar observation (genre(s) with most songs in Autumn) while the bottom 3 donut charts share another common observation (genre(s) with most songs in Winter).
+
+## References
+
+1. Data Source: Our data source is from The TidyTuesday Project. Link to the dataset: [tidytuesday/data/2020/2020-01-21/](https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-01-21)
+2. Pavlik K. (2019) Understanding + classifying genres using Spotify audio features. https://www.kaylinpavlik.com/classifying-songs-genres/.
+3. Spotify. (2022) Company Information. https://newsroom.spotify.com/company-info/
+4. JoanCA. (2013). Why did rock music decline, and can it make a comeback? Spinditty. https://spinditty.com/genres/rock-music-comeback 
